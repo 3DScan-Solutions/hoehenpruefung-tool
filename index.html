@@ -247,6 +247,33 @@
     font-size: 13px; padding: 0 2px; line-height: 1;
   }
   .team-chip button:hover { color: var(--bad); }
+
+  /* --- Geräte-Übersicht (Zugangssperre) --- */
+  .geraete-liste { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .geraet-zeile {
+    background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 9px 12px; font-size: 13px;
+  }
+  .geraet-zeile-meta { color: var(--text-dim); font-size: 11.5px; margin-top: 2px; }
+
+  /* --- Zugangssperre-Overlay (einfache Passwort-Huerde, siehe pruefeZugangssperre) --- */
+  .zugangssperre-overlay {
+    position: fixed; inset: 0; z-index: 99999; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .zugangssperre-karte {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card); padding: 32px; max-width: 380px; width: 100%;
+  }
+  .zugangssperre-karte h1 { font-size: 20px; margin: 0 0 8px; }
+  .zugangssperre-karte .sub { margin: 0 0 20px; }
+  .zugangssperre-feld { margin-bottom: 14px; }
+  .zugangssperre-feld label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; }
+  .zugangssperre-feld input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px; box-sizing: border-box;
+  }
+  .zugangssperre-fehler { color: var(--bad); font-size: 12.5px; margin: 10px 0 0; }
   select {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -863,6 +890,37 @@
 </script>
 </head>
 <body>
+
+<!--
+  Einfache Zugangssperre (Passwort-Huerde), 19.08.2026 auf Nutzerwunsch, nachdem
+  das Tool ueber GitHub Pages oeffentlich erreichbar wurde. WICHTIG: Das ist
+  KEINE echte Zugriffskontrolle - der Quellcode inkl. Passwort-Hash liegt
+  oeffentlich einsehbar auf GitHub, eine technisch versierte Person koennte das
+  Passwort per Brute-Force knacken oder die Freigabe direkt per Browser-Konsole
+  setzen. Sinn ist nur, zufaellige Besucher, die den Link finden, nicht direkt
+  auf den vollen Funktionsumfang stossen zu lassen - siehe pruefeZugangssperre()
+  weiter unten im Haupt-Script fuer Details. Steht bewusst ganz am Anfang von
+  <body>, VOR dem eigentlichen Seiteninhalt (der trotzdem ganz normal im
+  Hintergrund laedt/rendert, nur optisch verdeckt), damit nichts kurz
+  unverdeckt aufblitzt.
+-->
+<div id="zugangssperreOverlay" class="zugangssperre-overlay">
+  <div class="zugangssperre-karte">
+    <h1>🔒 Zugang geschützt</h1>
+    <p class="sub">Bitte das Team-Passwort eingeben, um die Höhen- und Koordinatenprüfung zu öffnen.</p>
+    <div class="zugangssperre-feld">
+      <label for="zugangssperrePasswortInput">Passwort</label>
+      <input type="password" id="zugangssperrePasswortInput" autocomplete="off" onkeydown="if(event.key==='Enter') pruefeZugangssperre()">
+    </div>
+    <div class="zugangssperre-feld">
+      <label for="zugangssperreGeraeteNameInput">Gerätename (optional, erscheint in der Geräte-Übersicht)</label>
+      <input type="text" id="zugangssperreGeraeteNameInput" placeholder="z.B. Kevins Laptop" onkeydown="if(event.key==='Enter') pruefeZugangssperre()">
+    </div>
+    <button type="button" class="btn btn-primary" style="width:100%;" onclick="pruefeZugangssperre()">Freischalten</button>
+    <p class="zugangssperre-fehler" id="zugangssperreFehler" style="display:none;"></p>
+  </div>
+</div>
+
 <script>
   // Fruehestmoegliche Theme-Anwendung (Hell/Dunkel), damit beim Laden nicht
   // kurz das falsche Design aufblitzt (z.B. kurz dunkel, dann hell) - laeuft
@@ -877,6 +935,17 @@
       document.body.classList.add('theme-light');
     }
   } catch (e) { /* ignorieren - Standard (dunkel) bleibt aktiv */ }
+
+  // Ebenfalls fruehestmoeglich: Zugangssperre bereits ausblenden, wenn dieses
+  // Geraet das Passwort schon einmal erfolgreich eingegeben hat (siehe
+  // pruefeZugangssperre() weiter unten) - sonst wuerde bei jedem Neuladen kurz
+  // die Passwortabfrage aufblitzen, bevor das Haupt-Script sie wieder ausblendet.
+  try {
+    if (localStorage.getItem('hoehenpruefung_geraet_freigegeben') === 'true') {
+      const overlay = document.getElementById('zugangssperreOverlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+  } catch (e) { /* ignorieren - Passwortabfrage bleibt sicherheitshalber sichtbar */ }
 </script>
 
 <div class="shell-v2">
@@ -1269,6 +1338,26 @@ create table if not exists public.teams (
 alter table public.teams enable row level security;
 create policy "team_lesen_schreiben" on public.teams for all using (true) with check (true);</code>
       </p>
+      <p class="hint-text">
+        Für die Geräte-Übersicht unter "Zugangssperre" (weiter unten) wird optional eine dritte Tabelle genutzt – ohne sie funktioniert die Passwort-Hürde selbst ganz normal, nur die Liste der bekannten Geräte bleibt dann leer:<br>
+        <code style="display:block; margin-top:4px; padding:8px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); white-space:pre-wrap; font-size:11px;">create table if not exists public.geraete (
+  id text primary key,
+  name text,
+  erstellt_am timestamptz default now(),
+  letzter_zugriff timestamptz default now()
+);
+alter table public.geraete enable row level security;
+create policy "team_lesen_schreiben" on public.geraete for all using (true) with check (true);</code>
+      </p>
+    </div>
+
+    <div class="settings-block">
+      <div class="settings-row-title">Zugangssperre – bekannte Geräte</div>
+      <div class="settings-row-desc">
+        Diese Übersicht zeigt, welche Geräte die Passwort-Hürde beim Öffnen des Tools (siehe Hinweis dort) schon einmal erfolgreich passiert haben – erkennbar am selbst gewählten Gerätenamen. <strong>Wichtig:</strong> Das ist keine echte Zugriffskontrolle, sondern nur zur Übersicht gedacht. Da alle dasselbe Passwort verwenden, lässt sich ein einzelnes Gerät hier nicht gezielt sperren – dafür müsste das gemeinsame Passwort geändert werden (Rücksprache halten). Nur sichtbar, solange die Tabelle "geraete" angelegt ist (siehe SQL oben) und die Team-Synchronisierung verbunden ist.
+      </div>
+      <div id="geraeteListe" class="geraete-liste"></div>
+      <p class="hint-text" id="geraeteListeHinweis" style="display:none;"></p>
     </div>
 
     <div class="settings-group-heading">Diagnose
@@ -1384,6 +1473,15 @@ let karteEinsatzortLayer = null;
 // setzeTheme() selbst bleiben als Funktionsdeklarationen weiter unten stehen
 // (die werden ohnehin komplett gehoisted).
 const THEME_STORAGE = 'hoehenpruefung_theme';
+
+// Ebenfalls ganz oben deklariert, aus demselben TDZ-Grund: meldeGeraetAn()
+// (siehe weiter unten, Zugangssperre) liest diese Konstanten und wird von
+// verbindeSupabase() aufgerufen, das durch den automatischen
+// Wiederverbindungsversuch beim Laden sehr frueh laufen kann - noch bevor die
+// eigentliche, weiter unten stehende Definition dieser Konstanten erreicht ist.
+const GERAET_FREIGABE_STORAGE = 'hoehenpruefung_geraet_freigegeben';
+const GERAET_ID_STORAGE = 'hoehenpruefung_geraet_id';
+const GERAET_NAME_STORAGE = 'hoehenpruefung_geraet_name';
 
 // Zweiter, unabhaengiger Sync-Kanal ueber dieselbe Supabase-Verbindung, fuer
 // die Einsatzuebersicht (siehe verbindeSupabase/trenneSupabaseVerbindung
@@ -3619,6 +3717,27 @@ if (holeSupabaseUrl() && holeSupabaseKey()) {
 }
 switchTab('home'); // "home" ist der Standard-Tab beim Laden - blendet passend zur Startseite auch Adresssuche/Export-Buttons aus und befüllt die Kennzahlen-Kacheln
 
+// Zugangssperre (siehe Overlay-HTML direkt nach <body> sowie
+// pruefeZugangssperre weiter oben): Das Ausblenden bei bereits
+// freigeschaltetem Geraet passiert schon ganz frueh im Inline-Script direkt
+// nach <body> (verhindert ein Aufblitzen der Passwortabfrage). Hier nur noch
+// zwei kleine Komfort-Details fuer den Fall, dass die Abfrage tatsaechlich
+// sichtbar ist: das Gerätename-Feld mit einem sinnvollen Vorschlag
+// vorbefuellen (frei ueberschreibbar) und den Cursor gleich ins
+// Passwortfeld setzen.
+(function () {
+  const overlay = document.getElementById('zugangssperreOverlay');
+  if (!overlay || overlay.style.display === 'none') return;
+  const nameInput = document.getElementById('zugangssperreGeraeteNameInput');
+  if (nameInput && !nameInput.value) {
+    let vorschlag;
+    try { vorschlag = localStorage.getItem(GERAET_NAME_STORAGE); } catch (e) { /* ignorieren */ }
+    nameInput.value = vorschlag || errateGeraeteName();
+  }
+  const passwortInput = document.getElementById('zugangssperrePasswortInput');
+  if (passwortInput) passwortInput.focus();
+})();
+
 /**
  * Haelt die Leaflet-Karte bei Groessenaenderungen des Browserfensters/
  * Geraets (z.B. Drehen des Handys von Hoch- auf Querformat, Verschieben
@@ -3690,6 +3809,7 @@ function switchTab(tab) {
     aktualisiereProjektfeldToggleUI();
     aktualisiereExportAufKarteToggleUI();
     aktualisiereSupabaseUI();
+    aktualisiereGeraeteListe();
   }
   if (tab === 'einsatz') {
     initEinsatzUebersichtWennNoetig();
@@ -3785,6 +3905,173 @@ function setzeTheme(hell, speichern = true) {
   }
   const toggle = document.getElementById('lightModeToggle');
   if (toggle) toggle.checked = hell;
+}
+
+/**
+ * ------------------------------------------------------------
+ * Einfache Zugangssperre (Passwort-Huerde), 19.08.2026 auf Nutzerwunsch
+ * ------------------------------------------------------------
+ * WICHTIG - keine echte Zugriffskontrolle: Diese Datei liegt in einem
+ * oeffentlichen GitHub-Repository (Voraussetzung fuer kostenloses GitHub
+ * Pages, siehe Team-Gespraech dazu). Der Passwort-Hash unten ist damit fuer
+ * jeden einsehbar, der sich die Seitenquelle ansieht - ein 5-stelliges
+ * Passwort liesse sich daraus per Brute-Force in Sekunden erraten, und wer
+ * will, koennte die Freigabe auch direkt per Browser-Konsole selbst setzen
+ * (z.B. "localStorage.setItem('hoehenpruefung_geraet_freigegeben','true')").
+ * Sinn und Zweck ist ausschliesslich, zufaellige Besucher, die den Link
+ * finden, nicht direkt auf den vollen Funktionsumfang stossen zu lassen -
+ * kein Ersatz fuer echten Schutz sensibler Daten (die liegen ohnehin
+ * getrennt in Supabase, siehe Team-Synchronisierung, und sind ueber ein
+ * eigenes, nur dem Team bekanntes Zugangs-Zugangs-Paar geschuetzt).
+ *
+ * Passwort wird nie im Klartext gespeichert/verglichen, sondern als
+ * SHA-256-Hash (Web-Crypto-API, in jedem halbwegs aktuellen Browser
+ * vorhanden) - das aendert an obiger Einschaetzung nichts (siehe oben),
+ * verhindert nur, dass das Passwort beim blossen Anschauen des Quellcodes
+ * sofort im Klartext dasteht.
+ */
+const ZUGANGSSPERRE_PASSWORT_HASH = 'f8c347180cd0442fc3eec45e0b447555665b93961f49a28314b127eabc45e33d';
+
+/** Erzeugt/liest eine rein zufaellige, geraetebezogene ID (kein Fingerprinting) - dient nur dazu, "dieses Gerät" in der Geräte-Übersicht wiederzuerkennen. */
+function holeGeraetId() {
+  try {
+    let id = localStorage.getItem(GERAET_ID_STORAGE);
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random());
+      localStorage.setItem(GERAET_ID_STORAGE, id);
+    }
+    return id;
+  } catch (e) {
+    return 'unbekannt-' + Math.random().toString(36).slice(2);
+  }
+}
+
+/** Grober, rein informativer Vorschlag fuer den Gerätenamen aus dem User-Agent - keine exakte Geräte-Erkennung, nur ein Startwert, den man im Feld frei ueberschreiben kann. */
+function errateGeraeteName() {
+  const ua = navigator.userAgent || '';
+  let plattform = 'Unbekanntes Gerät';
+  if (/iPhone/.test(ua)) plattform = 'iPhone';
+  else if (/iPad/.test(ua)) plattform = 'iPad';
+  else if (/Android/.test(ua)) plattform = 'Android-Gerät';
+  else if (/Mac OS X/.test(ua)) plattform = 'Mac';
+  else if (/Windows/.test(ua)) plattform = 'Windows-PC';
+  else if (/Linux/.test(ua)) plattform = 'Linux-PC';
+  let browser = '';
+  if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/Chrome\//.test(ua) && !/Chromium/.test(ua)) browser = 'Chrome';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Safari\//.test(ua) && !/Chrome/.test(ua)) browser = 'Safari';
+  return browser ? `${browser} auf ${plattform}` : plattform;
+}
+
+async function sha256Hex(text) {
+  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** An "Freischalten" im Overlay bzw. Enter in einem der beiden Felder gebunden (siehe Overlay-HTML direkt nach <body>). */
+async function pruefeZugangssperre() {
+  const passwortInput = document.getElementById('zugangssperrePasswortInput');
+  const fehlerEl = document.getElementById('zugangssperreFehler');
+  if (!passwortInput) return;
+  let hash;
+  try {
+    hash = await sha256Hex(passwortInput.value);
+  } catch (e) {
+    // Sehr alte Browser ohne crypto.subtle - in der Praxis nicht zu erwarten,
+    // da GitHub Pages ohnehin nur ueber https laeuft (Voraussetzung dafuer).
+    if (fehlerEl) { fehlerEl.textContent = 'Passwort konnte in diesem Browser nicht geprüft werden.'; fehlerEl.style.display = 'block'; }
+    return;
+  }
+  if (hash !== ZUGANGSSPERRE_PASSWORT_HASH) {
+    if (fehlerEl) { fehlerEl.textContent = 'Falsches Passwort.'; fehlerEl.style.display = 'block'; }
+    passwortInput.value = '';
+    passwortInput.focus();
+    return;
+  }
+  if (fehlerEl) fehlerEl.style.display = 'none';
+  try { localStorage.setItem(GERAET_FREIGABE_STORAGE, 'true'); } catch (e) { /* ignorieren */ }
+  const nameInput = document.getElementById('zugangssperreGeraeteNameInput');
+  const name = (nameInput && nameInput.value.trim()) || errateGeraeteName();
+  try { localStorage.setItem(GERAET_NAME_STORAGE, name); } catch (e) { /* ignorieren */ }
+  const overlay = document.getElementById('zugangssperreOverlay');
+  if (overlay) overlay.style.display = 'none';
+  meldeGeraetAn(name);
+}
+
+/**
+ * Meldet dieses Geraet (Name + eigene, zufaellige Geraete-ID, siehe
+ * holeGeraetId) bei aktiver Team-Synchronisierung in einer eigenen
+ * Supabase-Tabelle ("geraete") an, damit unter Einstellungen sichtbar ist,
+ * welche Geraete das Tool schon einmal freigeschaltet haben. Rein
+ * informativ (siehe Hinweis oben bei ZUGANGSSPERRE_PASSWORT_HASH) - kein
+ * Entzug einzelner Geraete moeglich, dafuer muesste das gemeinsame Passwort
+ * fuer alle geaendert werden. Ohne Team-Synchronisierung bleibt diese
+ * Information nur lokal auf dem jeweiligen Geraet und ist fuer andere nicht
+ * sichtbar - daher bewusst kein Fehler/keine Warnung, wenn supabaseClient
+ * fehlt, das ist ein voellig normaler Betriebszustand.
+ */
+async function meldeGeraetAn(name) {
+  if (!supabaseClient) return;
+  const geraetId = holeGeraetId();
+  let angezeigterName = name;
+  if (!angezeigterName) {
+    try { angezeigterName = localStorage.getItem(GERAET_NAME_STORAGE); } catch (e) { /* ignorieren */ }
+  }
+  angezeigterName = angezeigterName || errateGeraeteName();
+  try {
+    const jetzt = new Date().toISOString();
+    const { data: bestehend } = await supabaseClient.from('geraete').select('id, erstellt_am').eq('id', geraetId);
+    const erstelltAm = (bestehend && bestehend[0] && bestehend[0].erstellt_am) || jetzt;
+    const { error } = await supabaseClient.from('geraete').upsert({
+      id: geraetId, name: angezeigterName, erstellt_am: erstelltAm, letzter_zugriff: jetzt
+    });
+    if (error) console.warn('Gerät konnte nicht gemeldet werden (Tabelle "geraete" evtl. noch nicht angelegt):', error.message);
+  } catch (e) {
+    console.warn('Gerät konnte nicht gemeldet werden:', e.message);
+  }
+}
+
+function formatiereZeitstempel(iso) {
+  if (!iso) return '–';
+  const datum = new Date(iso);
+  if (isNaN(datum.getTime())) return '–';
+  return datum.toLocaleString('de-DE');
+}
+
+/** Laedt und zeigt die Liste bekannter Geraete unter Einstellungen (aktualisiereGeraeteListe, aufgerufen aus switchTab bei "einstellungen"). */
+async function aktualisiereGeraeteListe() {
+  const listEl = document.getElementById('geraeteListe');
+  const hinweisEl = document.getElementById('geraeteListeHinweis');
+  if (!listEl) return;
+  if (!supabaseClient) {
+    listEl.innerHTML = '';
+    if (hinweisEl) { hinweisEl.style.display = 'block'; hinweisEl.textContent = 'Nur mit aktiver Team-Synchronisierung sichtbar (siehe oben).'; }
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient.from('geraete').select('*').order('letzter_zugriff', { ascending: false });
+    if (error) throw error;
+    if (hinweisEl) hinweisEl.style.display = 'none';
+    if (!data || !data.length) {
+      listEl.innerHTML = '<div class="hint-text">Noch keine Geräte gemeldet.</div>';
+      return;
+    }
+    const eigeneId = holeGeraetId();
+    listEl.innerHTML = data.map(g => {
+      const istDieses = g.id === eigeneId ? ' <span style="color:var(--accent); font-size:11px;">(dieses Gerät)</span>' : '';
+      return `<div class="geraet-zeile">
+        <div><strong>${g.name || '(ohne Namen)'}</strong>${istDieses}</div>
+        <div class="geraet-zeile-meta">Zuletzt aktiv: ${formatiereZeitstempel(g.letzter_zugriff)} · Erstmals: ${formatiereZeitstempel(g.erstellt_am)}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    listEl.innerHTML = '';
+    if (hinweisEl) {
+      hinweisEl.style.display = 'block';
+      hinweisEl.textContent = 'Tabelle "geraete" noch nicht angelegt (SQL siehe oben unter Team-Synchronisierung) oder Verbindung fehlgeschlagen.';
+    }
+  }
 }
 
 /**
@@ -4418,6 +4705,16 @@ async function verbindeSupabase() {
     const trennenBtn = document.getElementById('supabaseTrennenBtn');
     if (trennenBtn) trennenBtn.style.display = 'inline-block';
     if (statusEl) statusEl.textContent = `Verbunden – ${(data || []).length} Punkt(e) geladen, Echtzeit aktiv.`;
+
+    // "Zuletzt aktiv" fuer die Geraete-Uebersicht (Einstellungen) frisch halten -
+    // nur wenn dieses Geraet die Passwort-Huerde bereits passiert hat (siehe
+    // pruefeZugangssperre), sonst wuerde hier faelschlich ein noch gar nicht
+    // freigeschaltetes Geraet gemeldet.
+    try {
+      if (localStorage.getItem(GERAET_FREIGABE_STORAGE) === 'true') {
+        meldeGeraetAn();
+      }
+    } catch (e) { /* ignorieren */ }
   } catch (e) {
     supabaseClient = null;
     if (statusEl) statusEl.textContent = 'Verbindung fehlgeschlagen: ' + e.message;
