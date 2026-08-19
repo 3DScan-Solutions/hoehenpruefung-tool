@@ -2303,7 +2303,23 @@ function speichereEinsatzTeamName() {
   try { localStorage.setItem(EINSATZ_TEAM_STORAGE, wert); } catch (e) { /* ignorieren, nicht kritisch */ }
 }
 
-/** Beim ersten Anzeigen des Reiters: Teams laden, Team-Auswahl und Datum sinnvoll vorbefuellen. */
+/**
+ * Bei JEDEM Anzeigen des Reiters (nicht nur beim ersten Mal): Teams laden,
+ * Team-Auswahl vorbefuellen und das Datumsfeld auf das tatsaechliche
+ * heutige Datum setzen.
+ *
+ * Wichtig: Das Datum wird bewusst bei JEDEM Aufruf neu gesetzt, nicht nur,
+ * wenn das Feld noch leer ist. Vorher galt "nur befuellen, wenn leer" - das
+ * fuehrte dazu, dass das Feld sich EIN EINZIGES Mal beim allerersten Oeffnen
+ * des Reiters selbst befuellte und danach fuer den Rest der Sitzung dabei
+ * blieb, selbst wenn zwischenzeitlich Mitternacht vergangen ist (z.B. Tool
+ * ueber Nacht im Browser offen gelassen). Ein neuer Einsatz am naechsten
+ * Tag haette dann faelschlich noch das Datum von gestern bekommen. Jetzt
+ * zeigt das Feld bei jedem (erneuten) Oeffnen des Reiters garantiert das
+ * echte aktuelle Datum. Eine bereits bestehende Einsatz-Zeile in der
+ * Tabelle ist davon nicht betroffen - nur das Formularfeld fuer einen
+ * NEUEN Eintrag wird zurueckgesetzt.
+ */
 function initEinsatzUebersichtWennNoetig() {
   ladeTeamsLokal();
   rendereTeamListe();
@@ -2313,7 +2329,7 @@ function initEinsatzUebersichtWennNoetig() {
     if (gemerkt && teamsListe.some(t => t.name === gemerkt)) select.value = gemerkt;
   }
   const datumInput = document.getElementById('einsatzDatum');
-  if (datumInput && !datumInput.value) datumInput.value = new Date().toISOString().slice(0, 10);
+  if (datumInput) datumInput.value = new Date().toISOString().slice(0, 10);
 }
 
 /**
