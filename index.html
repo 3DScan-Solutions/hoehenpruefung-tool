@@ -4214,6 +4214,13 @@ const DIAGNOSE_ENDPUNKTE = [
   { name: 'swisstopo (CH-Höhen)', url: 'https://api3.geo.admin.ch/' },
   { name: 'Open-Elevation (Global-Höhen)', url: 'https://api.open-elevation.com/' },
   { name: 'MapTiler SDK (CDN)', url: 'https://cdn.maptiler.com/maptiler-sdk-js/v3.9.0/maptiler-sdk.umd.min.js' },
+  // 20.08.2026: ergaenzt, nachdem ein Fall auftrat, bei dem die MapTiler-
+  // Bibliothek (obige Zeile) normal ladbar war, der eigentliche MapTiler-
+  // Kartenkachel-Dienst darunter aber ueber ein einschraenkendes Mobilfunknetz
+  // nicht antwortete - beides sind unterschiedliche Server, die getrennt
+  // erreichbar/nicht erreichbar sein koennen (siehe auch den automatischen
+  // Fallback in erzeugeKartenBasis()).
+  { name: 'MapTiler-Kartendienst (api.maptiler.com)', url: 'https://api.maptiler.com/' },
   { name: 'jsDelivr (MapTiler-Sprachmodul)', url: 'https://cdn.jsdelivr.net/npm/@maptiler/leaflet-maptilersdk@4.1.1/+esm' },
   { name: 'dipul/Geozonen-Dienst (uas-betrieb.de)', url: GEOZONEN_WMS_URL },
   { name: 'Overpass-API (overpass-api.de, Gebäudeflächen-Suche)', url: 'https://overpass-api.de/api/interpreter' },
@@ -5532,6 +5539,27 @@ function erzeugeKartenBasis() {
   }
   kartenBasisVersuche = 0;
 
+  // Gemeinsame Fallback-Funktion (kostenlose OSM-Kacheln), damit sie sowohl
+  // beim Fehlen/Scheitern des MapTiler-Plugins als auch - neu, siehe unten -
+  // beim stillen Ausbleiben der MapTiler-Kacheln (z.B. weil ausgerechnet der
+  // MapTiler-eigene Kartendienst ueber das aktuelle Netz blockiert/gedrosselt
+  // wird, waehrend die reine Programmbibliothek noch laden konnte) genutzt
+  // werden kann, ohne den Code doppelt zu pflegen. Der gespeicherte Key wird
+  // dabei NICHT geloescht - beim naechsten Laden (z.B. in einem Netz ohne
+  // diese Einschraenkung) wird wieder ganz normal MapTiler versucht.
+  function verwendeOsmFallback(hinweistext) {
+    karteBasisLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap-Mitwirkende'
+    });
+    karteBasisLayer.addTo(karteStrassenkarteGruppe);
+    if (hinweistext) {
+      console.warn(hinweistext);
+      const statusEl = document.getElementById('karteStatus');
+      if (statusEl) statusEl.textContent = hinweistext;
+    }
+  }
+
   if (key && typeof fabrik === 'function') {
     try {
       const sprache = ermittleDeutscheSprachKonstante();
@@ -5544,9 +5572,12 @@ function erzeugeKartenBasis() {
       // 3) nochmal per Timeout als Netz, falls "ready" in dieser Version
       //    nicht existiert oder nicht feuert
       karteBasisLayer = fabrik({ apiKey: key, language: sprache });
+      const dieserVersuch = karteBasisLayer;
+      let maptilerBereitGemeldet = false;
 
       if (typeof karteBasisLayer.on === 'function') {
         karteBasisLayer.on('ready', () => {
+          maptilerBereitGemeldet = true;
           try {
             if (typeof karteBasisLayer.setLanguage === 'function') {
               karteBasisLayer.setLanguage(sprache);
@@ -5555,6 +5586,24 @@ function erzeugeKartenBasis() {
             console.error('Fehler bei setLanguage() nach "ready":', fehler);
           }
         });
+
+        // Sicherheitsnetz (20.08.2026, von einem Nutzer gemeldet: Straßenkarte
+        // blieb grau/leer, obwohl Satellit/Topografisch normal funktionierten
+        // - Ursache war ein Mobilfunknetz, das ausgerechnet den MapTiler-
+        // Kartendienst blockierte/drosselte). Meldet sich "ready" nicht
+        // innerhalb von 8s, gehen wir von einem nicht erreichbaren
+        // MapTiler-Kartendienst aus (nicht von einem Bug) und wechseln
+        // automatisch auf die kostenlosen OSM-Kacheln, statt die Karte
+        // dauerhaft leer zu lassen. Wurde die Basiskarte in der Zwischenzeit
+        // bereits anders gewechselt (dieserVersuch-Vergleich), greift das
+        // Sicherheitsnetz nicht mehr ein.
+        setTimeout(() => {
+          if (maptilerBereitGemeldet || karteBasisLayer !== dieserVersuch) return;
+          if (karteStrassenkarteGruppe && karteStrassenkarteGruppe.hasLayer(dieserVersuch)) {
+            karteStrassenkarteGruppe.removeLayer(dieserVersuch);
+          }
+          verwendeOsmFallback('MapTiler-Kartendienst antwortet nicht (evtl. durch das aktuelle Netzwerk blockiert oder gedrosselt) – automatisch auf kostenlose OpenStreetMap-Kacheln umgeschaltet. Der MapTiler-Key bleibt gespeichert und wird beim nächsten Laden erneut versucht.');
+        }, 8000);
       }
 
       karteBasisLayer.addTo(karteStrassenkarteGruppe);
@@ -5573,11 +5622,7 @@ function erzeugeKartenBasis() {
       console.error('MapTiler-Karte konnte nicht geladen werden, verwende OSM-Standardkacheln:', e);
     }
   }
-  karteBasisLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap-Mitwirkende'
-  });
-  karteBasisLayer.addTo(karteStrassenkarteGruppe);
+  verwendeOsmFallback();
 }
 
 /** Tauscht die Basiskarte aus (z.B. nach Speichern/Entfernen eines Keys), ohne Marker/Zoom/Position zu verlieren. */
