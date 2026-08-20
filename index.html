@@ -4142,8 +4142,14 @@ function aktualisiereHomeUebersicht() {
 
   const elTeamSync = document.getElementById('homeStatTeamSync');
   if (elTeamSync) {
-    elTeamSync.textContent = supabaseClient ? 'Verbunden' : (holeSupabaseUrl() ? 'Eingerichtet, nicht verbunden' : 'Nicht eingerichtet');
-    elTeamSync.style.color = supabaseClient ? 'var(--good)' : 'var(--text)';
+    // Auf Nutzerwunsch vereinfacht: Statt der frueheren Unterscheidung
+    // "Eingerichtet, nicht verbunden" vs. "Nicht eingerichtet" (beides in
+    // neutraler Textfarbe) zeigt die Startseite jetzt in JEDEM nicht
+    // verbundenen Fall einheitlich "Nicht verbunden" in Rot (var(--bad)) -
+    // damit auf einen Blick auffaellt, wenn ein Geraet gerade nicht
+    // synchronisiert ist, statt es an der neutralen Farbe zu uebersehen.
+    elTeamSync.textContent = supabaseClient ? 'Verbunden' : 'Nicht verbunden';
+    elTeamSync.style.color = supabaseClient ? 'var(--good)' : 'var(--bad)';
   }
 
   const elProjekt = document.getElementById('homeStatProjekt');
