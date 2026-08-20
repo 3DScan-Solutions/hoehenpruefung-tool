@@ -89,7 +89,13 @@
     color: var(--text);
     font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     margin: 0;
-    padding: 28px 32px 60px;
+    /* env(safe-area-inset-top) ist 0 in einem normalen Browser-Tab und wird
+       nur relevant, wenn die Seite als "Zum Home-Bildschirm hinzugefuegt"-App
+       im Vollbild laeuft (apple-mobile-web-app-capable, siehe <head>) - dort
+       gibt es keine Safari-eigene Kopfzeile mehr, die die Notch/Statusleiste
+       abdeckt, sonst wuerde eigener Inhalt (Titel etc.) direkt darunter/-hinter
+       gerendert und mit Uhrzeit/Akku-Anzeige ueberlappen. */
+    padding: calc(28px + env(safe-area-inset-top, 0px)) 32px 60px;
   }
   /* War bisher fest 1320px - auf breiten (externen) Monitoren blieb dadurch
      viel ungenutzter schwarzer Leerraum neben der Icon-Leiste stehen, auf
@@ -813,7 +819,11 @@
     .rail-item .rail-ico { width: 34px; height: 34px; font-size: 16px; margin: 0 auto; }
     .rail-ico svg { width: 20px; height: 20px; }
     .logo-home-btn .app-logo { width: 34px; height: 34px; }
-    .canvas { padding: 14px 10px calc(76px + env(safe-area-inset-bottom, 0px)); }
+    /* Oben ebenfalls safe-area-inset-top beruecksichtigen (siehe Kommentar
+       bei body weiter oben) - auf dem Handy uebernimmt .canvas ab hier die
+       eigentliche Polsterung, da body selbst weiter oben auf padding:0
+       gesetzt wird. */
+    .canvas { padding: calc(14px + env(safe-area-inset-top, 0px)) 10px calc(76px + env(safe-area-inset-bottom, 0px)); }
 
     .ocr-drawer { top: 10px; right: 10px; max-height: calc(100vh - 90px - env(safe-area-inset-bottom, 0px)); }
 
