@@ -369,6 +369,11 @@
      statt Legende) unveraendert bleiben. */
   #panel-karte .toolbar { gap: 24px; margin-bottom: 20px; }
   #panel-karte .panel-intro { margin-bottom: 24px; }
+  /* Vergleich-Reiter: Beschreibungstext saß zu dicht an der Vergleichstabelle
+     direkt darunter (20.08.2026, von Kevin per Screenshot gemeldet) - mehr
+     Abstand nach unten, bewusst nur hier per ID gescopet (analog zu
+     #panel-karte oben), damit die übrigen Reiter unveraendert bleiben. */
+  #panel-vergleich .panel-intro { margin-bottom: 32px; }
   #panel-karte .toolbar-group { gap: 20px; padding-left: 20px; }
   #panel-karte .legend-item { gap: 8px; }
   .legend-good { background: var(--good); }
@@ -524,10 +529,24 @@
 
   /* Untermenue "Zurück"/"Punkte löschen" unter dem 📍-Knopf - klappt beim
      Hover nach LINKS aus (Knopf sitzt am rechten Kartenrand, ein Ausklappen
-     nach rechts würde aus dem sichtbaren Bereich der Karte hinauslaufen). */
+     nach rechts würde aus dem sichtbaren Bereich der Karte hinauslaufen).
+     WICHTIG (20.08.2026, von Kevin auf dem Windows-PC gemeldet: Untermenue
+     schließt sich wieder, bevor "Punkte löschen" angeklickt werden kann):
+     Vorher stand hier "right: calc(100% + 6px)" - der dadurch entstehende
+     6px-Zwischenraum zwischen Knopf und Untermenue gehörte WEDER zur
+     Hover-Fläche des Knopfes NOCH zu der des Untermenues (Ränder/Abstände
+     zählen fürs CSS-":hover" nicht mit). Bewegte man die Maus mit der
+     normalen, leicht schrägen Handbewegung vom Knopf zum Untermenue, verließ
+     der Mauszeiger dabei kurz beide Flächen gleichzeitig - das Untermenue
+     schloss sich (display:none), bevor die Maus es erreichte, exakt wie
+     gemeldet. Per Playwright nachgestellt (Mausbewegung in 15 Zwischen-
+     schritten vom Knopf zum "Punkte löschen"-Knopf) und reproduziert; nach
+     der Korrektur (Untermenue überlappt den Knopf minimal statt eines
+     echten Zwischenraums) bleibt das Untermenue während der gesamten
+     Bewegung sichtbar und der Klick kommt an. */
   .karte-punkt-wrap { position: relative; }
   .karte-punkt-untermenu {
-    position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%);
+    position: absolute; right: calc(100% - 2px); top: 50%; transform: translateY(-50%);
     display: none; flex-direction: column; gap: 4px;
     background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--radius-sm);
     padding: 6px; box-shadow: var(--shadow-card); z-index: 1000;
