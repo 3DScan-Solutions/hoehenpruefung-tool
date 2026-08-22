@@ -552,6 +552,20 @@
     padding: 6px; box-shadow: var(--shadow-card); z-index: 1000;
   }
   .karte-punkt-wrap:hover .karte-punkt-untermenu { display: flex; }
+  /* Auf Touch-Geraeten (Handy/Tablet) gibt es kein echtes ":hover" - ein
+     Tippen auf den 📍-Knopf loest zwar seinen onclick aus (Punkt-Setzen-
+     Modus umschalten), zeigt aber nicht zuverlaessig das Untermenue, das ja
+     nur beim MAUS-Hover erscheint. "↩ Zurück"/"🗑️ Punkte löschen" waeren auf
+     dem Handy dadurch praktisch nicht erreichbar gewesen - von Kevin
+     nachgefragt ("soll auf dem Handy genau so funktionieren wie am PC"),
+     nachdem der reine PC-Hover-Bug (siehe oben) behoben war. "(hover: none)"
+     bzw. "(pointer: coarse)" erkennt Geraete ohne verlaessliches Hover
+     (unabhaengig von der Bildschirmgroesse, anders als eine feste
+     max-width-Grenze) und zeigt das Untermenue dort dauerhaft an, statt es
+     von einer Hover-Geste abhaengig zu machen, die es dort gar nicht gibt. */
+  @media (hover: none), (pointer: coarse) {
+    .karte-punkt-untermenu { display: flex; }
+  }
   .karte-punkt-untermenu-btn {
     background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
     border-radius: var(--radius-sm); padding: 6px 10px; font-size: 12px; white-space: nowrap;
