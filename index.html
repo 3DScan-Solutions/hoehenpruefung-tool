@@ -877,10 +877,31 @@
     .app-shell { max-width: none; }
     .shell-v2 { display: block; height: auto; overflow: visible; }
     .canvas { overflow: visible; height: auto; padding: 0; }
-    .card { box-shadow: none; border: 1px solid #999; background: white; padding: 0; margin-bottom: 26px; }
-    .tab-panel { display: block !important; page-break-inside: avoid; }
+    /* 23.08.2026: padding war hier komplett auf 0 gesetzt - dadurch stiess
+       jeglicher Inhalt (Ueberschrift, Tabelle, Hinweistext) direkt an den
+       Kartenrand, und die fett gedruckte Ueberschrift ("Höhen-Prüfung" etc.)
+       lag optisch GENAU auf der oberen Rahmenlinie ("der Rand überlagert
+       sich mit dem Text", von Kevin gemeldet). Fix: etwas Innenabstand
+       zurueckgeben (kleiner als die 30px am Bildschirm, da im PDF ohnehin
+       schon 12mm Seitenrand ueber @page reserviert sind), damit Rahmen und
+       Inhalt sich nicht mehr beruehren. */
+    .card { box-shadow: none; border: 1px solid #999; background: white; padding: 16px 18px 14px; margin-bottom: 26px; }
+    /* 23.08.2026: vorher wurden hier ALLE Reiter (.tab-panel) per
+       "display:block !important" gleichzeitig sichtbar gemacht - unabhaengig
+       davon, auf welchem Reiter man sich beim Klick auf "Prüfdokument als PDF
+       exportieren" gerade befand. Dadurch landeten z.B. beim Export von der
+       Höhen-Prüfung aus zusaetzlich der Koordinatenvergleich UND die
+       Einsatzübersicht mit im PDF (von Kevin gemeldet: "nur die Seite
+       exportieren, auf der ich mich gerade befinde"). Die Regel ist jetzt
+       entfernt - stattdessen gilt im Druck genau dieselbe Sichtbarkeit wie im
+       Tool selbst (siehe switchTab(): jeweils nur ein Reiter hat
+       style.display != "none"), sodass nur der gerade aktive Reiter gedruckt
+       wird. */
+    .tab-panel { page-break-inside: avoid; }
     /* Kartenansicht ist interaktiv (Leaflet/OSM) und macht im statischen
-       PDF-Prüfdokument keinen Sinn - bleibt wie CSV/GCP bewusst außen vor. */
+       PDF-Prüfdokument keinen Sinn - bleibt wie CSV/GCP bewusst außen vor,
+       AUCH wenn sie zufaellig der aktive Reiter waere (z.B. Export-Buttons
+       ueber die Einstellungen auf der Karte eingeblendet). */
     #panel-karte { display: none !important; }
     /* Einstellungen (z.B. MapTiler-Key) sind rein persoenlich/geraetebezogen
        und gehoeren nicht in ein Prüfdokument. */
